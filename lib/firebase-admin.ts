@@ -1,35 +1,48 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from "fs";
+import path from "path";
 
 import {
   cert,
   getApps,
   initializeApp,
 } from "firebase-admin/app";
+
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-function getCredential() {
-  // Netlify / production: use environment variables
-  if (process.env.NETLIFY === "true" || process.env.FIREBASE_ADMIN_PRIVATE_KEY) {
-    const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+function createAdminApp() {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
 
-    if (!projectId || !clientEmail || !privateKey) {
-      throw new Error(
-        "Firebase Admin environment variables are missing."
-      );
-    }
+  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 
-    return cert({
-      projectId,
-      clientEmail,
-      privateKey: privateKey.replace(/\\n/g, "\n"),
+  const privateKeyBase64 =
+    process.env.FIREBASE_ADMIN_PRIVATE_KEY_B64;
+
+  if (
+    projectId &&
+    clientEmail &&
+    privateKeyBase64
+  ) {
+    const privateKey = Buffer.from(
+      privateKeyBase64,
+      "base64"
+    )
+      .toString("utf8")
+      .trim();
+
+    return initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
     });
   }
 
-  // Local development: read the ignored service-account JSON
+  // Local development fallback
   const serviceAccountPath = path.join(
     process.cwd(),
     "firebase-service-account.json"
@@ -37,7 +50,7 @@ function getCredential() {
 
   if (!fs.existsSync(serviceAccountPath)) {
     throw new Error(
-      "firebase-service-account.json not found for local Firebase Admin setup."
+      "Firebase Admin credentials are missing."
     );
   }
 
@@ -45,19 +58,80 @@ function getCredential() {
     fs.readFileSync(serviceAccountPath, "utf8")
   );
 
-  return cert({
-    projectId: serviceAccount.project_id,
-    clientEmail: serviceAccount.client_email,
-    privateKey: serviceAccount.private_key,
+  return initializeApp({
+    credential: cert(serviceAccount),
   });
 }
 
-const adminApp =
-  getApps().length > 0
-    ? getApps()[0]
-    : initializeApp({
-        credential: getCredential(),
-      });
+const adminApp = createAdminApp();
+
+export const adminAuth = getAuth(adminApp);
+export const adminDb = getFirestore(adminApp);import fs from "fs";
+import path from "path";
+
+import {
+  cert,
+  getApps,
+  initializeApp,
+} from "firebase-admin/app";
+
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+
+function createAdminApp() {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
+
+  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+
+  const privateKeyBase64 =
+    process.env.FIREBASE_ADMIN_PRIVATE_KEY_B64;
+
+  if (
+    projectId &&
+    clientEmail &&
+    privateKeyBase64
+  ) {
+    const privateKey = Buffer.from(
+      privateKeyBase64,
+      "base64"
+    )
+      .toString("utf8")
+      .trim();
+
+    return initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+    });
+  }
+
+  // Local development fallback
+  const serviceAccountPath = path.join(
+    process.cwd(),
+    "firebase-service-account.json"
+  );
+
+  if (!fs.existsSync(serviceAccountPath)) {
+    throw new Error(
+      "Firebase Admin credentials are missing."
+    );
+  }
+
+  const serviceAccount = JSON.parse(
+    fs.readFileSync(serviceAccountPath, "utf8")
+  );
+
+  return initializeApp({
+    credential: cert(serviceAccount),
+  });
+}
+
+const adminApp = createAdminApp();
 
 export const adminAuth = getAuth(adminApp);
 export const adminDb = getFirestore(adminApp);
