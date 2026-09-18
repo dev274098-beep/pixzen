@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+
+# Next
+.next/
+out/
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# Firebase Admin
+firebase-service-account.json
+service-account.json
+*-service-account.json
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+
+# local files
+*.pem
+*.key
